@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Azure.Identity;
+using Azure.Storage.Blobs;
+using Microsoft.Extensions.Logging;
 using HandwritingApp.Data;
 using MudBlazor.Services;
 
@@ -23,6 +25,13 @@ public static class MauiProgram
         builder.Services.AddMudServices();
         
         builder.Services.AddSingleton<WeatherForecastService>();
+        
+        builder.Services.AddScoped<BlobServiceClient>(provider =>
+        {
+            return new BlobServiceClient(
+                new Uri("https://stdianalysis.blob.core.windows.net"),
+                new DefaultAzureCredential());
+        });
 
         return builder.Build();
     }

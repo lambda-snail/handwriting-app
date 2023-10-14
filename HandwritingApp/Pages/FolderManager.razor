@@ -1,0 +1,91 @@
+﻿@page "/documents"
+@using Azure.Storage.Blobs
+@using Azure.Storage.Blobs.Models
+@using Azure
+@using System.Collections.ObjectModel
+
+@if (_blobs.Count == 0)
+{
+    <MudGrid>
+        <MudItem xs="12">
+            <MudSkeleton Animation="Animation.Wave"/>
+        </MudItem>
+        <MudItem xs="12">
+            <MudSkeleton Animation="Animation.Wave"/>
+        </MudItem>
+        <MudItem xs="12">
+            <MudSkeleton Animation="Animation.Wave"/>
+        </MudItem>
+        <MudItem xs="12">
+            <MudSkeleton Animation="Animation.Wave"/>
+        </MudItem>
+    </MudGrid>
+}
+else
+{
+    <MudPaper Elevation="25">
+        <MudToolBar>
+            <MudIconButton OnClick="PickAndShow" Icon="@Icons.Material.Outlined.Add" Color="Color.Primary"/>
+            <MudIconButton Icon="@Icons.Material.Outlined.Edit"/>
+            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error"/>
+            @* <MudSpacer /> *@
+            @* <MudIconButton Icon="@Icons.Material.Outlined.Notifications" /> *@
+        </MudToolBar>
+    </MudPaper>
+
+    <MudDataGrid Items="@_blobs"
+                 Virtualize="true"
+                 ReadOnly="true">
+        <Columns>
+            <PropertyColumn Property="x => x.Name" Title="File Name" />
+            <PropertyColumn Property="x => x.Properties.LastModified" Title="Modified On"/>
+            <PropertyColumn Property="x => x.Properties.ContentType" Title="Content Type"/>
+        </Columns>
+    </MudDataGrid>
+}
+
+
+@code {
+    private BlobContainerClient _containerClient;
+    private AsyncPageable<BlobItem> _blobsIterator;
+    private ReadOnlyCollection<BlobItem> _blobs = new List<BlobItem>().AsReadOnly();
+
+    [Inject]
+    public BlobServiceClient blobServiceClient { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _containerClient = blobServiceClient.GetBlobContainerClient("documents");
+        _blobsIterator = _containerClient.GetBlobsAsync();
+
+        var list = new List<BlobItem>();
+        await foreach (var blob in _blobsIterator)
+        {
+            list.Add(blob);
+        }
+
+        _blobs = list.AsReadOnly();
+    }
+
+    public async void PickAndShow()
+    {
+        try
+        {
+            var result = await FilePicker.Default.PickAsync(PickOptions.Images);
+            if (result != null)
+            {
+                using var stream = await result.OpenReadAsync();
+                await _containerClient.UploadBlobAsync("test.jpg", stream);
+                
+                //var image = ImageSource.FromStream(() => stream);
+            }
+    //return result;
+        }
+        catch (Exception ex)
+        {
+    // The user canceled or something went wrong
+        }
+
+        //return null;
+    }
+}
