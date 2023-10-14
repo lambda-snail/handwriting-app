@@ -26,19 +26,6 @@ public static class MauiProgram
         builder.Services.AddMudServices();
 
         builder.Services.AddSingleton<BlobClientFactory>();
-        
-        //builder.Services.AddSingleton(new DefaultAzureCredential());
-        // builder.Services.AddScoped<BlobServiceClient>(provider =>
-        // {
-        //     // https://learn.microsoft.com/en-us/dotnet/api/azure.identity.interactivebrowsercredential?view=azure-dotnet
-        //     //var c = new InteractiveBrowserCredential();
-        //     //c.Authenticate();
-        //     
-        //     var credential = provider.GetRequiredService<DefaultAzureCredential>();
-        //     return new BlobServiceClient(
-        //         new Uri("https://stdianalysis.blob.core.windows.net"),
-        //         credential);
-        // });
 
         builder.Services.AddScoped<IDocumentAnalysisService, DocumentAnalysisService>();
 
