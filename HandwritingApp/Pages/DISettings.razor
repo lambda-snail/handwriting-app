@@ -1,0 +1,62 @@
+﻿@page "/settings/document-intelligence"
+
+@using System.ComponentModel.DataAnnotations;
+
+
+
+<MudCard>
+    <MudForm Model="@_model" ValidationDelay="0" bind-IsValid="@_success">
+        <MudCardContent>
+            <MudTextField @bind-Value="@_model.di_endpoint" Label="Document Intelligence Url" Required="true" RequiredError="xxxx" />
+            <MudTextField @bind-Value="@_model.di_key" Label="Document Intelligence Key" Required="true" RequiredError="yyy" />
+        </MudCardContent>
+    </MudForm>
+    <MudCardActions>
+        <MudButton Variant="@Variant.Filled" Color="@Color.Primary" Class="ml-auto" OnClick="@(async () => await Save())" >
+            Save
+        </MudButton>
+    </MudCardActions>
+</MudCard>
+
+@code {
+    DisplayNameLabelClass _model = new();
+    private bool _success;
+
+    [Inject]
+    private ISnackbar _toasts { get; set; }
+    
+    public class DisplayNameLabelClass
+    {
+        [Label("Document Intelligence Endpoint")]
+        public string di_endpoint { get; set; }
+        
+        [Label("Document Intelligence Key")]
+        public string di_key { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _model.di_endpoint = await SecureStorage.Default.GetAsync("di_endpoint");
+        _model.di_key = await SecureStorage.Default.GetAsync("di_key");
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(_model.di_endpoint)) // For some reason the form is not running the validator
+        {
+            _toasts.Add("Unable to save - please add a url to the document intelligence resource", Severity.Error);
+            return;
+        }
+        
+        if (string.IsNullOrWhiteSpace(_model.di_key)) // For some reason the form is not running the validator
+        {
+            _toasts.Add("Unable to save - please add a key for connecting to the document intelligence resource", Severity.Error);
+            return;
+        }
+        
+        await SecureStorage.Default.SetAsync("di_endpoint", _model.di_endpoint);
+        await SecureStorage.Default.SetAsync("di_key", _model.di_key);
+
+        _toasts.Add("Settings saved", Severity.Success);
+    }
+}

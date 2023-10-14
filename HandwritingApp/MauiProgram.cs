@@ -38,7 +38,7 @@ public static class MauiProgram
                 credential);
         });
 
-        builder.Services.AddScoped<IDocumentAnalysisService, DocumentAnalysisService>();
+        builder.Services.AddTransient<IDocumentAnalysisService, DocumentAnalysisService>();
 
         return builder.Build();
     }

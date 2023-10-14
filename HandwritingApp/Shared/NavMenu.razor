@@ -2,9 +2,12 @@
     <MudNavLink Icon="@Icons.Material.Filled.Home" Href="/" Match="NavLinkMatch.All">Home</MudNavLink>
     <MudNavLink Icon="@Icons.Material.Filled.Folder" Href="/documents" Match="NavLinkMatch.Prefix">Manage Documents</MudNavLink>
     <MudNavLink Icon="@Icons.Material.Filled.DocumentScanner" Href="/analyze" Match="NavLinkMatch.Prefix">Analyze Documents</MudNavLink>
-    @* <MudNavGroup Title="Settings" Expanded="true"> *@
-    @*     <MudNavLink Href="/users"  Match="NavLinkMatch.Prefix">Users</MudNavLink> *@
-    @*     <MudNavLink Href="/security"  Match="NavLinkMatch.Prefix">Security</MudNavLink> *@
-    @* </MudNavGroup> *@
+    <MudNavGroup Icon="@Icons.Material.Filled.Settings" Title="Settings" @bind-Expanded="@_settingsExpanded">
+        <MudNavLink Icon="@Icons.Material.Filled.Pages" Href="/settings/document-intelligence" Match="NavLinkMatch.Prefix">Document Intelligence</MudNavLink>
+    </MudNavGroup>
     <MudNavLink Href="/about"  Match="NavLinkMatch.Prefix">About</MudNavLink>
 </MudNavMenu>
+
+@code {
+    private bool _settingsExpanded = false;
+}

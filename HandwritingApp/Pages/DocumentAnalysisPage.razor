@@ -3,125 +3,159 @@
 @using Azure.Storage.Blobs
 @using Azure.Storage.Blobs.Models
 @using Azure
+@using Azure.AI.FormRecognizer.DocumentAnalysis
 
-<MudDynamicTabs @ref="@_tabComponent" @bind-ActivePanelIndex="@_userIndex"
-                AddTab="@AddTabCallback" CloseTab="@CloseTabCallback"
-                AddIconToolTip="Click to add a new tab" CloseIconToolTip="Close tab. All data will be lost"
-                PanelClass="px-4 py-6" Elevation="4" Rounded ApplyEffectsToContainer>
-    @foreach (var tab in _userTabs)
-    {
-        <MudTabPanel ID="@tab.Id" Text="@tab.Label" ShowCloseIcon="@tab.ShowCloseIcon">
-            @if (_blobs.Count > 1)
+<MudOverlay @ref="_overlay" DarkBackground="true" AutoClose="false">
+    <MudProgressCircular Color="Color.Info" Indeterminate="true" />
+</MudOverlay>
+
+<MudGrid Spacing="6" Class="mt-16">
+    <MudItem xs="12">
+        <MudToolBar>
+            <MudIconButton OnClick="async () => await BeginAnalysis(_selectedUnit)" Icon="@Icons.Material.Filled.CloudUpload" Disabled="_selectedUnit == null">Begin Analysis</MudIconButton>
+        </MudToolBar>
+    </MudItem>
+    <MudItem xs="5">
+        @if (_isInitialized)
+        {
+            <MudDataGrid
+                T="AnalysisUnit"
+                Items="@_units"
+                MultiSelection="false"
+                SelectedItemsChanged="SelectionChanged">
+                <Columns>
+                    <SelectColumn/>
+                    <PropertyColumn Property="x => x.Blob.Name" Title="Name"/>
+                </Columns>
+            </MudDataGrid>
+        }
+        else
+        {
+            <MudSkeleton Animation="Animation.Wave"/>
+            <MudSkeleton Animation="Animation.Wave"/>
+            <MudSkeleton Animation="Animation.Wave"/>
+            <MudSkeleton Animation="Animation.Wave"/>
+        }
+    </MudItem>
+    <MudItem xs="7">
+        <MudText Typo="Typo.h5" GutterBottom="true">Analysis Results</MudText>
+        <MudPaper Class="d-flex flex-column pa-2" Outlined="false" Elevation="25">
+            @if (_selectedUnit is not null)
             {
-                <MudSelect T="string" Label="Select File" AnchorOrigin="Origin.BottomCenter">
-                    @foreach (var blob in _blobs)
+                @if (_selectedUnit.Result is not null)
+                {
+                    foreach (DocumentStyle style in _selectedUnit.Result.Styles)
                     {
-                        <MudSelectItem Value="@blob.Name" />   
+                        bool isHandwritten = style.IsHandwritten.HasValue && style.IsHandwritten == true;
+                        if (isHandwritten && style.Confidence > 0.8)
+                        {
+                            foreach (DocumentSpan span in style.Spans)
+                            {
+                                <MudText>
+                                    @_selectedUnit.Result.Content.Substring(span.Index, span.Length)
+                                </MudText>
+                            }
+                        }
                     }
-                </MudSelect>
+                }
             }
             else
             {
-                <MudSkeleton Animation="Animation.Wave" />
+                <MudText>Select a file and press the cloud icon to begin analysis</MudText>
             }
-            
-        </MudTabPanel>
-    }
-</MudDynamicTabs>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
 
 @code {
-
-    public class TabView
+    bool _isInitialized = false;
+    
+    public class AnalysisUnit
     {
-        public string Label { get; set; }
-        public Guid Id { get; set; }
-        public bool ShowCloseIcon { get; set; } = true;
+        public BlobItem Blob { get; set; }
+        public AnalyzeResult? Result { get; set; }
     }
+
+    private AnalysisUnit? _selectedUnit = null;
 
     [Inject]
     private IDocumentAnalysisService _documentIntelligence { get; set; }
     
     [Inject]
-    private BlobServiceClient blobServiceClient { get; set; }
-
-    private MudDynamicTabs _tabComponent;
-    private List<TabView> _userTabs = new();
-    private int _userIndex;
-    bool _stateHasChanged;
-    private List<BlobItem> _blobs = new();
+    private BlobServiceClient _blobServiceClient { get; set; }
+    
+    [Inject]
+    private IDialogService _dialogService { get; set; }
+    
+    [Inject]
+    private ISnackbar _toasts { get; set; }
+    
+    
+    private List<AnalysisUnit> _units = new();
+    private BlobContainerClient _containerClient;
+    private MudOverlay _overlay;
 
     protected override async Task OnInitializedAsync()
     {
-        var containerClient = blobServiceClient.GetBlobContainerClient("documents");
-        var blobsIterator = containerClient.GetBlobsAsync();
+        _containerClient = _blobServiceClient.GetBlobContainerClient("documents");
+        var blobsIterator = _containerClient.GetBlobsAsync();
 
         await PopulateGrid(blobsIterator);
     }
 
     private async Task PopulateGrid(AsyncPageable<BlobItem> blobsIterator)
     {
-        List<BlobItem> list = new();
+        _isInitialized = false;
+        StateHasChanged();
+        
+        List<AnalysisUnit> list = new();
         await foreach (var blob in blobsIterator)
         {
-            list.Add(blob);
+            list.Add(new AnalysisUnit { Blob = blob });
         }
 
-        _blobs = list;
+        _units = list;
+        _isInitialized = true;
+        StateHasChanged();
     }
     
-    void RestoreUserTabs()
+    private async Task BeginAnalysis(AnalysisUnit unit)
     {
-        _userTabs.Clear();
-        _stateHasChanged = true;
-    }
-
-    protected override void OnInitialized()
-    {
-        base.OnInitialized();
-        RestoreUserTabs();
-    }
-
-    protected override void OnAfterRender(bool firstRender)
-    {
-        base.OnAfterRender(firstRender);
-        if (_stateHasChanged)
+        if (unit.Result is not null)
         {
-            _stateHasChanged = false;
-            StateHasChanged();
+            await _dialogService.ShowMessageBox("Analysis Already Done", $"The analysis for the file {unit.Blob.Name} has already completed with success");
+            return;
         }
-    }
 
-    public void AddTab(Guid id)
-    {
-        _userTabs.Add(new TabView { Id = id, Label = "dynamic tab" });
-        _userIndex = _userTabs.Count - 1; // Automatically switch to the new tab.
-        _stateHasChanged = true;
-    }
-
-    public void RemoveTab(Guid id)
-    {
-        var tabView = _userTabs.SingleOrDefault((t) => Equals(t.Id, id));
-        if (tabView is not null)
+        if (!_documentIntelligence.HasAzureConnection)
         {
-            _userTabs.Remove(tabView);
-            _stateHasChanged = true;
+            await _dialogService.ShowMessageBox("Connection Not Initialized", "The endpoint or key for accessing document intelligence seems to be missing. Add them on the settings page and come back here to try again.");
+            return;
         }
-    }
-
-    void AddTabCallback() => AddTab(Guid.NewGuid());
-    void CloseTabCallback(MudTabPanel panel) => RemoveTab((Guid)panel.ID);
-    
-    private async Task UploadFile(IReadOnlyList<IBrowserFile> files)
-    {
-        if (files.Count != 1) return;
-
-        var file = files.First();
-        await using var stream = file.OpenReadStream();
-        using var seekableStream = new MemoryStream();
-        await stream.CopyToAsync(seekableStream);
-
-        var fileName = file.Name;
         
-        var result = await _documentIntelligence.AnalyzeHandwriting(seekableStream);
+        _overlay.Visible = true;
+        StateHasChanged();
+        
+        var client = _containerClient.GetBlobClient(unit.Blob.Name);
+        var result = await _documentIntelligence.AnalyzeHandwriting_WaitUntilDone(client.Uri);
+        unit.Result = result;
+
+        _overlay.Visible = false;
+        StateHasChanged();
+
+        _toasts.Add("The analysis has been completed", Severity.Success);
     }
+
+    private void SelectionChanged(HashSet<AnalysisUnit> arg)
+    {
+        if (arg.Count != 1)
+        {
+            _selectedUnit = null;
+        }
+        else
+        {
+            _selectedUnit = arg.First();   
+        }
+    }
+
 }
