@@ -3,6 +3,7 @@
 @using Azure.Storage.Blobs.Models
 @using Azure
 @using System.Collections.ObjectModel
+@using HandwritingApp.Services
 
 
 <MudMessageBox @ref="_deleteMessage" Title="Warning" CancelText="Cancel">
@@ -87,17 +88,26 @@ else
     private MudMessageBox _deleteMessage;
 
     [Inject]
-    private BlobServiceClient blobServiceClient { get; set; }
+    private BlobClientFactory _factory { get; set; }
+    private BlobServiceClient _blobServiceClient;
     
     [Inject]
     private ISnackbar _toasts { get; set; }
-
+    
     protected override async Task OnInitializedAsync()
     {
-        _containerClient = blobServiceClient.GetBlobContainerClient("documents");
-        _blobsIterator = _containerClient.GetBlobsAsync();
-
-        await PopulateGrid();
+        var result = await _factory.GetBlobClientAsync();
+        if (result.TryPickT0(out _blobServiceClient, out MissingConnectionString error))
+        {
+            _containerClient = _blobServiceClient.GetBlobContainerClient("documents");
+            _blobsIterator = _containerClient.GetBlobsAsync();
+            await PopulateGrid();    
+        }
+        else
+        {
+            _isLoadingDone = true;
+            _toasts.Add("Unable to connect to Azure: Please enter the connection string to the blob storage on the settings page and return here.", Severity.Error);
+        }
     }
 
     private async Task PopulateGrid()

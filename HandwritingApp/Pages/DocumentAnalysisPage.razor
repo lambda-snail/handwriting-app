@@ -82,7 +82,8 @@
     private IDocumentAnalysisService _documentIntelligence { get; set; }
     
     [Inject]
-    private BlobServiceClient _blobServiceClient { get; set; }
+    private BlobClientFactory _factory { get; set; }
+    private BlobServiceClient _blobServiceClient;
     
     [Inject]
     private IDialogService _dialogService { get; set; }
@@ -97,10 +98,18 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _containerClient = _blobServiceClient.GetBlobContainerClient("documents");
-        var blobsIterator = _containerClient.GetBlobsAsync();
-
-        await PopulateGrid(blobsIterator);
+        var result = await _factory.GetBlobClientAsync();
+        if (result.TryPickT0(out _blobServiceClient, out MissingConnectionString error))
+        {
+            _containerClient = _blobServiceClient.GetBlobContainerClient("documents");
+            var blobsIterator = _containerClient.GetBlobsAsync();
+            await PopulateGrid(blobsIterator);    
+        }
+        else
+        {
+            _isInitialized = true;
+            _toasts.Add("Unable to connect to Azure: Please enter the connection string to the blob storage on the settings page and return here.", Severity.Error);
+        }
     }
 
     private async Task PopulateGrid(AsyncPageable<BlobItem> blobsIterator)
