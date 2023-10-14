@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using HandwritingApp.Data;
+using MudBlazor.Services;
 
 namespace HandwritingApp;
 
@@ -19,6 +20,8 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
+        builder.Services.AddMudServices();
+        
         builder.Services.AddSingleton<WeatherForecastService>();
 
         return builder.Build();
