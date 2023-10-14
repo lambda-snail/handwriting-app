@@ -1,0 +1,48 @@
+﻿@page "/settings/blob"
+
+@using System.ComponentModel.DataAnnotations;
+
+<MudCard>
+    <MudForm Model="@_model" ValidationDelay="0" bind-IsValid="@_success">
+        <MudCardContent>
+            <MudTextField @bind-Value="@_model.blob_connection_string" Label="Connection String" Required="true" RequiredError="This field is required"  />
+        </MudCardContent>
+    </MudForm>
+    <MudCardActions>
+        <MudButton Variant="@Variant.Filled" Color="@Color.Primary" Class="ml-auto" OnClick="@(async () => await Save())" >
+            Save
+        </MudButton>
+    </MudCardActions>
+</MudCard>
+
+@code {
+    BlobConnectionSettings _model = new();
+    private bool _success;
+
+    [Inject]
+    private ISnackbar _toasts { get; set; }
+    
+    public class BlobConnectionSettings
+    {
+        [Label("Blob Storage Connection String")]
+        public string blob_connection_string { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _model.blob_connection_string = await SecureStorage.Default.GetAsync("blob_connection_string");
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(_model.blob_connection_string))
+        {
+            _toasts.Add("Unable to save - please add a connection string to connect", Severity.Error);
+            return;
+        }
+        
+        await SecureStorage.Default.SetAsync("blob_connection_string", _model.blob_connection_string);
+
+        _toasts.Add("Settings saved", Severity.Success);
+    }
+}

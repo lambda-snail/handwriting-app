@@ -2,13 +2,11 @@
 
 @using System.ComponentModel.DataAnnotations;
 
-
-
 <MudCard>
     <MudForm Model="@_model" ValidationDelay="0" bind-IsValid="@_success">
         <MudCardContent>
-            <MudTextField @bind-Value="@_model.di_endpoint" Label="Document Intelligence Url" Required="true" RequiredError="xxxx" />
-            <MudTextField @bind-Value="@_model.di_key" Label="Document Intelligence Key" Required="true" RequiredError="yyy" />
+            <MudTextField @bind-Value="@_model.di_endpoint" Label="Document Intelligence Url" Required="true" RequiredError="This field is required" />
+            <MudTextField @bind-Value="@_model.di_key" Label="Document Intelligence Key" Required="true" RequiredError="This field is required" />
         </MudCardContent>
     </MudForm>
     <MudCardActions>
