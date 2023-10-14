@@ -4,7 +4,13 @@ using Azure.Identity;
 
 namespace HandwritingApp.Services;
 
-public class DocumentAnalysisService
+public interface IDocumentAnalysisService
+{
+    public Task<AnalyzeResult> AnalyzeHandwriting(Uri uri);
+    public Task<AnalyzeResult> AnalyzeHandwriting(Stream stream);
+}
+
+public class DocumentAnalysisService : IDocumentAnalysisService
 {
     private readonly DocumentAnalysisClient _client;
     

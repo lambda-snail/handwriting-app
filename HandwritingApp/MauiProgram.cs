@@ -2,6 +2,8 @@
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Logging;
 using HandwritingApp.Data;
+using HandwritingApp.Services;
+using Microsoft.AspNetCore.Authorization;
 using MudBlazor.Services;
 
 namespace HandwritingApp;
@@ -26,12 +28,17 @@ public static class MauiProgram
         
         builder.Services.AddSingleton<WeatherForecastService>();
         
+        builder.Services.AddSingleton<DefaultAzureCredential>(new DefaultAzureCredential());
+        
         builder.Services.AddScoped<BlobServiceClient>(provider =>
         {
+            var credential = provider.GetRequiredService<DefaultAzureCredential>();
             return new BlobServiceClient(
                 new Uri("https://stdianalysis.blob.core.windows.net"),
-                new DefaultAzureCredential());
+                credential);
         });
+
+        builder.Services.AddScoped<IDocumentAnalysisService, DocumentAnalysisService>();
 
         return builder.Build();
     }

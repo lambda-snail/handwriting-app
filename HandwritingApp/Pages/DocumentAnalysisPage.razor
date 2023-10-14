@@ -1,0 +1,73 @@
+﻿@page "/analyze"
+@using HandwritingApp.Services
+
+<MudDynamicTabs @ref="@_tabComponent" @bind-ActivePanelIndex="@_userIndex"
+                AddTab="@AddTabCallback" CloseTab="@CloseTabCallback"
+                AddIconToolTip="Click to add a new tab" CloseIconToolTip="Close tab. All data will be lost"
+                PanelClass="px-4 py-6" Elevation="4" Rounded ApplyEffectsToContainer>
+    @foreach (var tab in _userTabs)
+    {
+        <MudTabPanel ID="@tab.Id" Text="@tab.Label" ShowCloseIcon="@tab.ShowCloseIcon">@tab.Content</MudTabPanel>
+    }
+</MudDynamicTabs>
+
+@code {
+    public class TabView
+    {
+        public string Label { get; set; }
+        public string Content { get; set; }
+        public Guid Id { get; set; }
+        public bool ShowCloseIcon { get; set; } = true;
+    }
+
+    [Inject]
+    private IDocumentAnalysisService documentIntelligence { get; set; }
+
+    private MudDynamicTabs _tabComponent;
+    private List<TabView> _userTabs = new();
+    private int _userIndex;
+    bool _stateHasChanged;
+    bool _showCloseIcon = false;
+    
+    void RestoreUserTabs()
+    {
+        _userTabs.Clear();
+        _stateHasChanged = true;
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        RestoreUserTabs();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+        if (_stateHasChanged)
+        {
+            _stateHasChanged = false;
+            StateHasChanged();
+        }
+    }
+
+    public void AddTab(Guid id)
+    {
+        _userTabs.Add(new TabView {Id = id, Label = "dynamic tab", Content = $"Tab ID: {id}"});
+        _userIndex = _userTabs.Count - 1; // Automatically switch to the new tab.
+        _stateHasChanged = true;
+    }
+
+    public void RemoveTab(Guid id)
+    {
+        var tabView = _userTabs.SingleOrDefault((t) => Equals(t.Id, id));
+        if (tabView is not null)
+        {
+            _userTabs.Remove(tabView);
+            _stateHasChanged = true;
+        }
+    }
+
+    void AddTabCallback() => AddTab(Guid.NewGuid());
+    void CloseTabCallback(MudTabPanel panel) => RemoveTab((Guid)panel.ID);
+}

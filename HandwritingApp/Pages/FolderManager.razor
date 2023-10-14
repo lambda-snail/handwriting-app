@@ -87,10 +87,10 @@ else
     private MudMessageBox _deleteMessage;
 
     [Inject]
-    public BlobServiceClient blobServiceClient { get; set; }
+    private BlobServiceClient blobServiceClient { get; set; }
     
     [Inject]
-    public ISnackbar _toasts { get; set; }
+    private ISnackbar _toasts { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
