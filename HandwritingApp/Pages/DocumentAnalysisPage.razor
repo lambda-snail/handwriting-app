@@ -126,23 +126,27 @@
             await _dialogService.ShowMessageBox("Analysis Already Done", $"The analysis for the file {unit.Blob.Name} has already completed with success");
             return;
         }
-
-        if (!_documentIntelligence.HasAzureConnection)
-        {
-            await _dialogService.ShowMessageBox("Connection Not Initialized", "The endpoint or key for accessing document intelligence seems to be missing. Add them on the settings page and come back here to try again.");
-            return;
-        }
         
         _overlay.Visible = true;
         StateHasChanged();
+
+        try
+        {
+            var client = _containerClient.GetBlobClient(unit.Blob.Name);
+            var result = await _documentIntelligence.AnalyzeHandwriting_WaitUntilDone(client.Uri);
+            unit.Result = result;
+        }
+        catch (Exception e)
+        {
+            _toasts.Add(e.Message + "If you are missing the connection information, please go to the settings screen and try again", Severity.Error);
+            return;
+        }
+        finally
+        {
+            _overlay.Visible = false;
+            StateHasChanged();
+        }
         
-        var client = _containerClient.GetBlobClient(unit.Blob.Name);
-        var result = await _documentIntelligence.AnalyzeHandwriting_WaitUntilDone(client.Uri);
-        unit.Result = result;
-
-        _overlay.Visible = false;
-        StateHasChanged();
-
         _toasts.Add("The analysis has been completed", Severity.Success);
     }
 
