@@ -4,7 +4,7 @@
 @using Azure
 @using System.Collections.ObjectModel
 
-@if (_blobs.Count == 0)
+@if (! _isLoadingDone)
 {
     <MudGrid>
         <MudItem xs="12">
@@ -25,19 +25,38 @@ else
 {
     <MudPaper Elevation="25">
         <MudToolBar>
-            <MudIconButton OnClick="PickAndShow" Icon="@Icons.Material.Outlined.Add" Color="Color.Primary"/>
-            <MudIconButton Icon="@Icons.Material.Outlined.Edit"/>
-            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error"/>
+            <MudTooltip Text="Upload images">
+                <MudFileUpload T="IReadOnlyList<IBrowserFile>" Accept=".pdf, .png, .jpg" FilesChanged="UploadFiles" MaximumFileCount="100">
+                    <ButtonTemplate>
+                        <MudIconButton HtmlTag="label"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   Icon="@Icons.Material.Filled.CloudUpload"
+                                   for="@context">
+                            Upload
+                        </MudIconButton>
+                    </ButtonTemplate>
+                </MudFileUpload>
+            </MudTooltip>
+            
+            <!--MudIconButton Icon="@Icons.Material.Outlined.Edit"/-->
+            <MudTooltip Text="Delete image">
+                <MudIconButton OnClick="DeleteSelectedBlobs" Icon="@Icons.Material.Outlined.Delete" Disabled="_selection.Count == 0" Color="Color.Error"/>    
+            </MudTooltip>
             @* <MudSpacer /> *@
             @* <MudIconButton Icon="@Icons.Material.Outlined.Notifications" /> *@
         </MudToolBar>
     </MudPaper>
 
-    <MudDataGrid Items="@_blobs"
+    <MudDataGrid T="BlobItem"
+                 MultiSelection="true"
+                 Items="@_blobs"
                  Virtualize="true"
-                 ReadOnly="true">
+                 ReadOnly="true"
+                 SelectedItemsChanged="SelectionChanged">
         <Columns>
-            <PropertyColumn Property="x => x.Name" Title="File Name" />
+            <SelectColumn T="BlobItem" />
+            <PropertyColumn Property="x => x.Name" Title="File Name"/>
             <PropertyColumn Property="x => x.Properties.LastModified" Title="Modified On"/>
             <PropertyColumn Property="x => x.Properties.ContentType" Title="Content Type"/>
         </Columns>
@@ -46,10 +65,14 @@ else
 
 
 @code {
+    bool _isLoadingDone = false;
+    
     private BlobContainerClient _containerClient;
     private AsyncPageable<BlobItem> _blobsIterator;
-    private ReadOnlyCollection<BlobItem> _blobs = new List<BlobItem>().AsReadOnly();
+    private List<BlobItem> _blobs = new List<BlobItem>();
 
+    private List<BlobItem> _selection = new List<BlobItem>();
+    
     [Inject]
     public BlobServiceClient blobServiceClient { get; set; }
 
@@ -58,34 +81,59 @@ else
         _containerClient = blobServiceClient.GetBlobContainerClient("documents");
         _blobsIterator = _containerClient.GetBlobsAsync();
 
-        var list = new List<BlobItem>();
+        await PopulateGrid();
+    }
+
+    private async Task PopulateGrid()
+    {
+        _isLoadingDone = false;
+        StateHasChanged(); 
+        
+        List<BlobItem> list = new();
         await foreach (var blob in _blobsIterator)
         {
             list.Add(blob);
         }
 
-        _blobs = list.AsReadOnly();
+        _blobs = list;
+        _isLoadingDone = true;
+        StateHasChanged();
     }
-
-    public async void PickAndShow()
+    
+    private void SelectionChanged(HashSet<BlobItem> arg)
     {
-        try
+        if (arg.Count != 0)
         {
-            var result = await FilePicker.Default.PickAsync(PickOptions.Images);
-            if (result != null)
-            {
-                using var stream = await result.OpenReadAsync();
-                await _containerClient.UploadBlobAsync("test.jpg", stream);
-                
-                //var image = ImageSource.FromStream(() => stream);
-            }
-    //return result;
+            _selection = arg.ToList();
         }
-        catch (Exception ex)
+        else
         {
-    // The user canceled or something went wrong
+            _selection.Clear();
+        }
+    }
+
+    private async Task DeleteSelectedBlobs(MouseEventArgs obj)
+    {
+        foreach (var blob in _selection)
+        {
+            await _containerClient.DeleteBlobAsync(blob.Name);
+            _blobs.Remove(blob);
+        }
+    }
+
+    private async Task UploadFiles(IReadOnlyList<IBrowserFile> files)
+    {
+        if (files.Count == 0) return;
+        
+        foreach (var file in files)
+        {
+            using var stream = file.OpenReadStream();
+            string fileName = file.Name;
+            await _containerClient.UploadBlobAsync(fileName, stream);
+            //image = ImageSource.FromStream(() => stream);
         }
 
-        //return null;
+        await PopulateGrid();
     }
+
 }
