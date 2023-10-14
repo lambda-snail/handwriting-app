@@ -24,6 +24,7 @@ public static class MauiProgram
 
         builder.Services.AddMudServices();
 
+        builder.Services.AddSingleton(new DefaultAzureCredential());
         builder.Services.AddScoped<BlobServiceClient>(provider =>
         {
             var credential = provider.GetRequiredService<DefaultAzureCredential>();
