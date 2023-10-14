@@ -1,5 +1,8 @@
 ﻿@page "/analyze"
 @using HandwritingApp.Services
+@using Azure.Storage.Blobs
+@using Azure.Storage.Blobs.Models
+@using Azure
 
 <MudDynamicTabs @ref="@_tabComponent" @bind-ActivePanelIndex="@_userIndex"
                 AddTab="@AddTabCallback" CloseTab="@CloseTabCallback"
@@ -7,27 +10,64 @@
                 PanelClass="px-4 py-6" Elevation="4" Rounded ApplyEffectsToContainer>
     @foreach (var tab in _userTabs)
     {
-        <MudTabPanel ID="@tab.Id" Text="@tab.Label" ShowCloseIcon="@tab.ShowCloseIcon">@tab.Content</MudTabPanel>
+        <MudTabPanel ID="@tab.Id" Text="@tab.Label" ShowCloseIcon="@tab.ShowCloseIcon">
+            @if (_blobs.Count > 1)
+            {
+                <MudSelect T="string" Label="Select File" AnchorOrigin="Origin.BottomCenter">
+                    @foreach (var blob in _blobs)
+                    {
+                        <MudSelectItem Value="@blob.Name" />   
+                    }
+                </MudSelect>
+            }
+            else
+            {
+                <MudSkeleton Animation="Animation.Wave" />
+            }
+            
+        </MudTabPanel>
     }
 </MudDynamicTabs>
 
 @code {
+
     public class TabView
     {
         public string Label { get; set; }
-        public string Content { get; set; }
         public Guid Id { get; set; }
         public bool ShowCloseIcon { get; set; } = true;
     }
 
     [Inject]
-    private IDocumentAnalysisService documentIntelligence { get; set; }
+    private IDocumentAnalysisService _documentIntelligence { get; set; }
+    
+    [Inject]
+    private BlobServiceClient blobServiceClient { get; set; }
 
     private MudDynamicTabs _tabComponent;
     private List<TabView> _userTabs = new();
     private int _userIndex;
     bool _stateHasChanged;
-    bool _showCloseIcon = false;
+    private List<BlobItem> _blobs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var containerClient = blobServiceClient.GetBlobContainerClient("documents");
+        var blobsIterator = containerClient.GetBlobsAsync();
+
+        await PopulateGrid(blobsIterator);
+    }
+
+    private async Task PopulateGrid(AsyncPageable<BlobItem> blobsIterator)
+    {
+        List<BlobItem> list = new();
+        await foreach (var blob in blobsIterator)
+        {
+            list.Add(blob);
+        }
+
+        _blobs = list;
+    }
     
     void RestoreUserTabs()
     {
@@ -53,7 +93,7 @@
 
     public void AddTab(Guid id)
     {
-        _userTabs.Add(new TabView {Id = id, Label = "dynamic tab", Content = $"Tab ID: {id}"});
+        _userTabs.Add(new TabView { Id = id, Label = "dynamic tab" });
         _userIndex = _userTabs.Count - 1; // Automatically switch to the new tab.
         _stateHasChanged = true;
     }
@@ -70,4 +110,18 @@
 
     void AddTabCallback() => AddTab(Guid.NewGuid());
     void CloseTabCallback(MudTabPanel panel) => RemoveTab((Guid)panel.ID);
+    
+    private async Task UploadFile(IReadOnlyList<IBrowserFile> files)
+    {
+        if (files.Count != 1) return;
+
+        var file = files.First();
+        await using var stream = file.OpenReadStream();
+        using var seekableStream = new MemoryStream();
+        await stream.CopyToAsync(seekableStream);
+
+        var fileName = file.Name;
+        
+        var result = await _documentIntelligence.AnalyzeHandwriting(seekableStream);
+    }
 }

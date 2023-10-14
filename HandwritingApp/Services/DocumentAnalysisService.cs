@@ -14,9 +14,12 @@ public class DocumentAnalysisService : IDocumentAnalysisService
 {
     private readonly DocumentAnalysisClient _client;
     
-    public DocumentAnalysisService(DefaultAzureCredential credential)
+    public DocumentAnalysisService(DefaultAzureCredential credential2)
     {
-        string endpoint = "https://westeurope.api.cognitive.microsoft.com/";
+        string endpoint = "https://hedgehog-documents.cognitiveservices.azure.com/";
+        //string endpoint = "https://westeurope.api.cognitive.microsoft.com/";
+        
+        AzureKeyCredential credential = new AzureKeyCredential(key);
         _client = new DocumentAnalysisClient(new Uri(endpoint), credential);
     }
 
